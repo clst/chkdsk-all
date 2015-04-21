@@ -47,8 +47,10 @@ FOR /f "tokens=4,5,6 delims=[]. " %%a IN ('ver') DO (
 
 
 :: ScanDisk All <v.arribas.urjc@gmail.com (c) 2014 BSD-Clause 3>
+:: modified by Claudius Steinhauser <cs@koch-aplsystems.de (c) 2015 BSD-Clause 3>
 :--------------------------------------
 @echo off
+setlocal EnableDelayedExpansion
 REM The System Drive must be specially treated.
 SET SYSTEM_DRIVE=C:
 
@@ -57,32 +59,40 @@ set Win8=0
 if 6 LEQ %WMajor% if 2 LEQ %WMinor% (set Win8=1)
 
 REM ^, -- ^ is the escape character for declarations  between '
-for /f "skip=1 tokens=1,2 delims= " %%a in ('wmic logicaldisk get caption^,filesystem') do (
-	if "%%a" == "%SYSTEM_DRIVE%" (
-		if %Win8% == 1 (
-			echo ### Read-Only ScanDisk of System Drive %%a
-			chkdsk /scan /perf /forceofflinefix %%a
-			echo ### Run System File Checker on System Drive %%a
-			sfc /scannow
-		) else (
-			echo Set ### System Drive %%a as dirty to force boot-scandisk scan
-			fsutil dirty set %%a
-		)
-	) else if "%%b" == "NTFS" (
-		echo ### Two-steps ScanDisk of %%b unit %%a
-		if %Win8% == 1 (
-			REM http://www.minasi.com/newsletters/nws1305.htm (chkdsk Win 8+ features)
-			chkdsk /scan /perf /forceofflinefix %%a
-			chkdsk /X /offlinescanandfix %%a
-		) else (
-			REM Old scan (backward compatibility <Win 8)
-			chkdsk /F /X %%a
-			chkdsk /F /X /R /B %%a
-		)
-	) else if "%%b" == "FAT32" (
-		echo ### Two-steps ScanDisk of %%b unit %%a
-		chkdsk /F /X %%a
-		chkdsk /F /X /R %%a
+for /f "skip=1 tokens=1,2 delims= " %%a in ('wmic volume get filesystem^,name') do (
+	echo.
+	set testhere=%%b
+	if not !testhere!X==X (
+		set testhere=!testhere:~0,-1!
+	)
+	if not !testhere!X==X (
+		set drv=%%b
+		set drv=!drv:~0,-1!
+		if "!drv!" == "%SYSTEM_DRIVE%" (
+			if %Win8% == 1 (
+				echo ### Read-Only ScanDisk of System Drive !drv!
+				chkdsk /scan /perf /forceofflinefix !drv!
+				echo ### Run System File Checker on System Drive !drv!
+				sfc /scannow
+			) else (
+				echo ### Read-Only ScanDisk of System Drive !drv!
+				fsutil dirty set %%a
+			)
+		) else if "%%a" == "NTFS" (
+			echo ### Two-steps ScanDisk of %%a unit !drv!
+			if %Win8% == 1 (
+				REM http://www.minasi.com/newsletters/nws1305.htm (chkdsk Win 8+ features)
+				chkdsk /scan /perf /forceofflinefix !drv!
+				chkdsk /X /offlinescanandfix !drv!
+			) else (
+				REM Old scan (backward compatibility <Win 8)
+				chkdsk /F /X !drv!
+				chkdsk /F /X /R /B !drv!
+			)
+		) else if "%%a" == "FAT32" (
+			echo ### Two-steps ScanDisk of %%a unit !drv!
+			chkdsk /F /X !drv!
+			chkdsk /F /X /R !drv!
 	)
 )
 :--------------------------------------
